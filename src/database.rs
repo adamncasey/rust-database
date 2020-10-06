@@ -1,13 +1,25 @@
 #![allow(dead_code)]
-use crate::query::{Column, Output, Query, QueryResult};
+use crate::query::{Column, Output, Query, QueryResult, DataType};
+use std::cmp;
 
+#[derive(Clone)]
 enum Value {
     FixedString(String),
     I32(i32),
+    Null,
 }
 
 struct Row {
     values: Vec<Value>,
+}
+impl Row {
+    pub fn to_string_array(&self) -> Vec<String> {
+        self.values.iter().map(|v| match v {
+            Value::FixedString(s) => s.clone(),
+            Value::I32(v) => v.to_string(),
+            Value::Null => "NULL".to_owned()
+        }).collect::<Vec<String>>().to_vec()
+    }
 }
 
 struct Table {
@@ -16,10 +28,24 @@ struct Table {
     data: Vec<Row>,
 }
 impl Table {
-    pub fn new(columns: Vec<Column>) -> Table { Table {columns: columns, data: vec![]}}
-    pub fn insert(&mut self, _rows: &Vec<String>) {}
+    pub fn new(columns: &Vec<Column>) -> Table {
+        Table {columns: columns.to_vec(), data: vec![]}
+    }
+
+    pub fn insert(&mut self, values: &Vec<String>) {
+        let row_values = values.iter().zip(self.columns.iter()).map(|(val, col)| match col.data_type {
+            DataType::FixedString{len} => Value::FixedString(val[0..cmp::min(len, val.len())].to_owned()),
+            DataType::I32 => match val.parse::<i32>() {
+                Ok(int_val) => Value::I32(int_val),
+                _ => Value::Null
+            }
+        }).collect();
+        self.data.push(Row {values: row_values})
+    }
+
     pub fn rows(&self) -> Vec<Vec<String>> {
-        vec![]
+        let rows = self.data.iter();
+        rows.map(|r| r.to_string_array()).collect()
     }
 }
 
@@ -61,10 +87,16 @@ impl Database {
                     vec![]
                 }
             },
-            _ => {
-                comment = "Not implemented".to_owned();
-                vec![]
-            }
+            Query::CreateTable { types } => match &mut self.table {
+                Some(_) => {
+                    comment = "Table alredy exists".to_owned();
+                    vec![]
+                },
+                None => {
+                    self.table = Some(Box::new(Table::new(types)));
+                    vec![]
+                }
+            },
         };
 
         let result = Output {

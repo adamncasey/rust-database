@@ -20,15 +20,15 @@ pub enum Query {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DataType {
     FixedString {
         len: usize
     },
-    I32 // 32bit?
+    I32
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,

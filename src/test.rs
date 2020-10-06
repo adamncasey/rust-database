@@ -43,5 +43,5 @@ fn insert_select()
 
     let result = db.json_query(&SELECT_STATEMENT);
 
-    assert_eq!(result, r#"{"num_rows":1,"rows":[["0", "20", "Alice"]],"comment":""}"#);
+    assert_eq!(result, r#"{"num_rows":1,"rows":[["0","20","Alice"]],"comment":""}"#);
 }
