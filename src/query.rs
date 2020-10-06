@@ -1,11 +1,15 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize)]
 pub struct Output {
-    num_rows: usize,
-    rows: Vec<Vec<String>>,
-    comment: String
+    pub num_rows: usize,
+    pub rows: Vec<Vec<String>>,
+    pub comment: String
 }
 
 pub type QueryResult = std::result::Result<Output, String>;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Query {
     Select,
     Insert {
@@ -16,6 +20,7 @@ pub enum Query {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub enum DataType {
     FixedString {
         len: usize
@@ -23,7 +28,8 @@ pub enum DataType {
     I32 // 32bit?
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Column {
-    name: String,
-    data_type: DataType,
+    pub name: String,
+    pub data_type: DataType,
 }

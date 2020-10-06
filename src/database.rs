@@ -1,90 +1,86 @@
-use crate::query::{Column, DataType, Query, QueryResult};
+#![allow(dead_code)]
+use crate::query::{Column, Output, Query, QueryResult};
 
 enum Value {
     FixedString(String),
-    I32(i32)
+    I32(i32),
 }
 
 struct Row {
-    values: Vec<Value>
+    values: Vec<Value>,
 }
 
 struct Table {
     // Primary Key is column[0]
     columns: Vec<Column>,
-    data: Vec<Row>
+    data: Vec<Row>,
+}
+impl Table {
+    pub fn new(columns: Vec<Column>) -> Table { Table {columns: columns, data: vec![]}}
+    pub fn insert(&mut self, _rows: &Vec<String>) {}
+    pub fn rows(&self) -> Vec<Vec<String>> {
+        vec![]
+    }
 }
 
-struct Database {
-    table: Table,
+pub struct Database {
+    table: Option<Box<Table>>,
 }
 
 impl Database {
-    fn new() -> Database {
-        Database {
-            table: Table {
-                columns: Vec::new(),
-                data: Vec::new()
-            }
-        }
+    pub fn new() -> Database {
+        Database { table: None }
     }
 
-    fn query(&mut self, query: &Query) -> QueryResult {
-        Ok(Output {
-            num_rows: 0,
-            rows: vec![],
-            comment: String::from("Not implemented")
-        })
-    }
-}
+    pub fn query(&mut self, query: &Query) -> QueryResult {
+        println!("query: {}", serde_json::to_string(&query).unwrap());
 
-#[test]
-fn empty_table()
-{
-    let db = Database::new();
+        let mut comment = String::new();
+        let mut num_rows = 0;
 
-    db.query(Query::CreateTable{
-        types: vec![Column {
-            name: "personid",
-            value: DataType::I32
-        },Column {
-            name: "age",
-            value: DataType::I32
-        }]
-    });
-
-    let result = db.query(Query::Select);
-
-    assert_eq!(result.unwrap().num_rows, 0);
-}
-
-
-fn insert_select()
-{
-    let db = Database::new();
-
-    db.query(Query::CreateTable{
-        types: vec![Column {
-            name: "personid",
-            value: DataType::I32
-        },Column {
-            name: "age",
-            value: DataType::I32
-        },Column {
-            name: "shortname",
-            value: DataType::FixedString {
-                len: 20
+        let rows = match query {
+            Query::Select => match &mut self.table {
+                Some(table) => {
+                    let rows = table.rows();
+                    num_rows = rows.len();
+                    rows
+                }
+                None => {
+                    comment = "No table".to_owned();
+                    vec![]
+                }
+            },
+            Query::Insert { values } => match &mut self.table {
+                Some(table) => {
+                    table.insert(&values);
+                    num_rows = 1;
+                    vec![]
+                }
+                None => {
+                    comment = "No table".to_owned();
+                    vec![]
+                }
+            },
+            _ => {
+                comment = "Not implemented".to_owned();
+                vec![]
             }
-        }]
-    });
+        };
 
-    db.query(Query::Insert {
-        values: vec!["0", "20", "Alice"]
-    }).unwrap();
+        let result = Output {
+            num_rows: num_rows,
+            rows: rows,
+            comment: comment,
+        };
+        println!("result: {}", serde_json::to_string(&result).unwrap());
 
-    let result = db.query(Query::Select).unwrap();
+        Ok(result)
+    }
 
-    assert_eq!(result.num_rows, 1);
+    pub fn json_query(&mut self, query: &str) -> String {
+        let query_decoded: Query = serde_json::from_str(&query).unwrap();
+        let results_coded = self.query(&query_decoded).unwrap();
 
-    assert_eq!(result.rows, vec!["0", "20", "Alice"]);
+        serde_json::to_string(&results_coded).unwrap()
+    }
 }
