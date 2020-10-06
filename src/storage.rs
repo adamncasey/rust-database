@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-struct MemoryStorage {
+pub struct MemoryStorage {
     pages: HashMap<u32, Box<Page>>,
     npages: u32,
 }
@@ -31,12 +31,12 @@ impl MemoryStorage {
         self.npages -= 1;
     }
 
-    pub fn checkout(&mut self, num: u32) -> Box<Page> {
-        self.pages.remove(&num).unwrap()
+    pub fn checkout_mut(&mut self, num: u32) -> &mut Page {
+        self.pages.get_mut(&num).unwrap()
     }
 
-    pub fn retrn(&mut self, num: u32, page: Box<Page>) {
-        self.pages.insert(num, page);
+    pub fn checkout(&self, num: u32) -> &Page {
+        self.pages.get(&num).unwrap()
     }
 }
 
@@ -48,13 +48,11 @@ fn test_memstorage() {
 
     let page_no = store.create();
 
-    let mut page = store.checkout(page_no);
+    let page = store.checkout_mut(page_no);
 
     page[0] = 0;
     page[1] = 1;
     page[2] = 2;
-
-    store.retrn(page_no, page);
 
     assert_eq!(1, store.num_pages());
 
@@ -63,8 +61,6 @@ fn test_memstorage() {
     assert_eq!(page[0], 0);
     assert_eq!(page[1], 1);
     assert_eq!(page[2], 2);
-
-    store.retrn(page_no, page);
 
     store.delete(page_no);
 
