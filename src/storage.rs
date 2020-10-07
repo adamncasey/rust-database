@@ -1,11 +1,10 @@
 use std::collections::HashMap;
+use crate::page::Page;
 
 pub struct MemoryStorage {
-    pages: HashMap<u32, Box<Page>>,
+    pages: HashMap<u32, Page>,
     npages: u32,
 }
-
-pub type Page = [u8; 4096];
 
 impl MemoryStorage {
     pub fn new() -> MemoryStorage {
@@ -22,21 +21,17 @@ impl MemoryStorage {
     pub fn create(&mut self) -> u32 {
         let page_num = self.npages;
         self.npages += 1;
-        self.pages.insert(page_num, Box::new([0; 4096]));
+        let new_page = Box::new([0; 4096]);
+        self.pages.insert(page_num, new_page);
         page_num
     }
 
-    pub fn delete(&mut self, num: u32) {
-        self.pages.remove(&num).unwrap();
-        self.npages -= 1;
+    pub fn checkout(&mut self, num: u32) -> &Page {
+        self.pages.get(&num).unwrap()
     }
 
     pub fn checkout_mut(&mut self, num: u32) -> &mut Page {
         self.pages.get_mut(&num).unwrap()
-    }
-
-    pub fn checkout(&self, num: u32) -> &Page {
-        self.pages.get(&num).unwrap()
     }
 }
 
@@ -48,21 +43,21 @@ fn test_memstorage() {
 
     let page_no = store.create();
 
-    let page = store.checkout_mut(page_no);
-
-    page[0] = 0;
-    page[1] = 1;
-    page[2] = 2;
-
     assert_eq!(1, store.num_pages());
 
-    let page = store.checkout(page_no);
+    {
+        let page = store.checkout_mut(page_no);
 
-    assert_eq!(page[0], 0);
-    assert_eq!(page[1], 1);
-    assert_eq!(page[2], 2);
+        page[0] = 0;
+        page[1] = 1;
+        page[2] = 2;
+    }
 
-    store.delete(page_no);
+    {
+        let page = store.checkout(page_no);
 
-    assert_eq!(0, store.num_pages());
+        assert_eq!(page[0], 0);
+        assert_eq!(page[1], 1);
+        assert_eq!(page[2], 2);
+    }
 }
