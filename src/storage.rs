@@ -26,7 +26,7 @@ impl MemoryStorage {
         page_num
     }
 
-    pub fn checkout(&mut self, num: u32) -> &Page {
+    pub fn checkout(&self, num: u32) -> &Page {
         self.pages.get(&num).unwrap()
     }
 
