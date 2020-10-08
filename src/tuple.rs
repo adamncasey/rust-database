@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 use std::cmp;
-use std::slice;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ColumnType {
@@ -41,10 +40,13 @@ impl ColumnType {
     pub fn deserialize(&self, value: &[u8]) -> String {
         match self {
             ColumnType::UnsignedInt32 => {
-                "ui32".to_owned()
+                assert_eq!(value.len(), 4);
+                let ival = u32::from_le_bytes([value[0], value[1], value[2], value[3]]);
+                ival.to_string()
             },
             ColumnType::Varchar(n) => {
-                "vshar".to_owned()
+                assert_eq!(value.len(), *n);
+                "vchar".to_owned()
             }
         }
     }

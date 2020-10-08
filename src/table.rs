@@ -15,30 +15,46 @@ struct TableIter<'a> {
     cur_row: u32,
 }
 
+impl TableIter<'_> {
+
+    fn finished(&self) -> bool {
+        self.cur_page == self.end_page
+    }
+
+    fn incr(&mut self) {
+        // we are not on a page
+        if self.finished() { return; }
+
+        // we are not on the last row for a page
+        if self.cur_row != self.end_row { self.cur_row += 1; return; }
+
+        // if we are on the last row, move to the first row
+        self.cur_row = 0;
+        // of the next page
+        self.cur_page += 1;
+
+        // if its not the last page
+        if self.cur_page == self.end_page {
+            self.end_row = 0;
+        } else {
+            // figure out its end row
+            self.end_row = self.table.page_rows(self.cur_page);
+        }
+
+    }
+}
+
 impl<'a> Iterator for TableIter<'a> {
     type Item = Vec<String>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.cur_page != self.end_page {
-            if self.cur_row == self.end_row {
-                self.cur_row = 0;
-                self.cur_page += 1;
-
-                if self.cur_page == self.end_page {
-                    self.end_row = 0;
-                } else {
-                    self.end_row = self.table.page_rows(self.cur_page);
-                }
-            } else {
-                self.cur_row += 1
-            };
-        };
-
-        if self.cur_page == self.end_page {
+        let item = if self.cur_page == self.end_page {
             None
         } else {
             Some(self.table.read_row(self.cur_page, self.cur_row))
-        }
+        };
+        self.incr();
+        item
     }
 }
 
@@ -57,9 +73,26 @@ impl Table {
     }
 
     fn read_row(&self, page_no: u32, row_no: u32) -> Vec<String> {
+        println!("{:?}", page_no);
         let page = self.store.checkout(page_no);
         let row = LeafPage::get_row(page, row_no, self.schema.size());
+        println!("{:?}", row);
         self.schema.deserialize(row).unwrap()
+    }
+
+    fn write_row(&mut self, page_no: u32, row_no: u32, values: &[&str]) -> Result<(), &'static str> {
+        let page = self.store.checkout_mut(page_no);
+        let row = LeafPage::get_row_mut(page, row_no, self.schema.size());
+
+        println!("{:?}", page_no);
+        match self.schema.serialize(values, row) {
+            Ok(_) => {
+                println!("{:?}", row);
+                LeafPage::set_row_count(page, row_no + 1);
+                Ok(())
+            },
+            Err(msg) => Err(msg)
+        }
     }
 
     pub fn read<'a>(&'a self) -> TableIter<'a> {
@@ -77,7 +110,7 @@ impl Table {
     }
 
     fn page_full(&self, page_no: u32) -> bool {
-        false
+        false //TODO: implement
     }
 
     pub fn append(&mut self, values: &[&str]) -> Result<(), &'static str> {
@@ -97,15 +130,9 @@ impl Table {
 
         let insert_row = LeafPage::get_row_count(page);
 
-        let row = LeafPage::get_row_mut(page, insert_row, self.schema.size());
+        let res = self.write_row(insert_page, insert_row, values);
 
-        match self.schema.serialize(values, row) {
-            Ok(_) => {
-                LeafPage::set_row_count(page, insert_row + 1);
-                Ok(())
-            },
-            Err(msg) => Err(msg)
-        }
+        res
     }
 }
 
@@ -134,6 +161,7 @@ fn test_create_insert() {
 
     t.append(&["1", "2", "abcd"]).unwrap();
 
+
     let mut iter = t.read();
 
     let opt_row = iter.next();
@@ -142,8 +170,5 @@ fn test_create_insert() {
 
     let row = opt_row.unwrap();
 
-    assert_eq!(row.len(), 3);
-    assert_eq!(row[0], "1");
-    assert_eq!(row[1], "2");
-    assert_eq!(row[2], "abcd");
+    assert_eq!(row, ["1","2","abcd"]);
 }
