@@ -4,7 +4,7 @@ use std::collections::btree_map::Iter;
 use std::collections::btree_map::Range;
 use std::ops::Bound::*;
 
-struct DbTable {
+pub struct DbTable {
     rows: BTreeMap<RowId, Tuple>,
     schema: TupleSchema,
     next_rowid: RowId,
