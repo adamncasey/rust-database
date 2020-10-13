@@ -1,5 +1,7 @@
 use crate::tuple::{Tuple, TupleSchema, TupleType, TupleVariant};
 use std::collections::BTreeMap;
+use std::collections::btree_map::Iter;
+use std::collections::btree_map::Range;
 use std::ops::Bound::*;
 
 struct DbTable {
@@ -8,14 +10,12 @@ struct DbTable {
     next_rowid: RowId,
 }
 
-struct DbTableCursor<'a> {
-    table: &'a DbTable,
-    rowid: Option<RowId>,
-}
-
+type DbTableIter<'a> = Iter<'a, RowId, Tuple>;
+type DbTableRange<'a> = Range<'a, RowId, Tuple>;
 type RowId = u32;
 
 impl DbTable {
+
     pub fn new(schema: TupleSchema) -> DbTable {
         DbTable {
             rows: BTreeMap::new(),
@@ -24,14 +24,14 @@ impl DbTable {
         }
     }
 
-    pub fn insert(&mut self, t: Tuple) -> DbTableCursor {
+    pub fn insert(&mut self, t: Tuple) -> DbTableRange {
         let rowid = self.next_rowid;
         self.next_rowid += 1;
         self.rows.insert(rowid, t);
-        DbTableCursor::new(self, Some(rowid))
+        self.rows.range((Included(rowid), Unbounded))
     }
 
-    pub fn update(&mut self, r: RowId, t: Tuple) -> DbTableCursor {
+    pub fn update(&mut self, r: RowId, t: Tuple) -> DbTableRange {
         self.delete(r);
         self.insert(t)
     }
@@ -40,55 +40,11 @@ impl DbTable {
         self.rows.remove(&r);
     }
 
-    pub fn cursor<'a>(&'a self) -> DbTableCursor {
-        DbTableCursor::new_from_start(self)
+    pub fn cursor<'a>(&'a self) -> DbTableIter {
+        self.rows.iter()
     }
 }
 
-impl DbTableCursor<'_> {
-    pub fn new<'a>(table: &'a DbTable, r: Option<RowId>) -> DbTableCursor {
-        DbTableCursor {
-            table: table,
-            rowid: r,
-        }
-    }
-
-    pub fn new_from_start<'a>(table: &'a DbTable) -> DbTableCursor {
-        let rowid= table.rows.keys().next();
-
-        Self::new(table, match rowid {
-            Some(r) => Some(*r),
-            None => None
-        })
-    }
-
-    pub fn has_row(&self) -> bool {
-        self.rowid.is_some()
-    }
-
-    pub fn key(&self) -> RowId {
-        self.rowid.unwrap()
-    }
-
-    pub fn value(&self) -> &Tuple {
-        self.table.rows.get(&self.rowid.unwrap()).unwrap()
-    }
-
-    pub fn next(&mut self) -> bool {
-        let mut range = self.table.rows.range((Excluded(self.rowid.unwrap()), Unbounded));
-
-        match range.next() {
-            Some((&r, _)) => {
-                self.rowid = Some(r);
-                true
-            },
-            None => {
-                self.rowid = None;
-                false
-            }
-        }
-    }
-}
 
 #[test]
 fn test_dbtable() {
@@ -101,15 +57,15 @@ fn test_dbtable() {
 
     let mut c = table.cursor();
 
-    assert!(c.has_row());
-    assert_eq!(c.key(), 0);
+    let (k, v) = c.next().unwrap();
+
+    assert_eq!(*k, 0);
     assert_eq!(
-        c.value(),
+        v,
         &[
             TupleVariant::UnsignedInt32(1),
             TupleVariant::VarChar("hello".to_owned())
         ]
     );
-    assert!(!c.next());
-    assert!(!c.has_row());
+    assert!(c.next().is_none());
 }
