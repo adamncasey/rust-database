@@ -1,5 +1,5 @@
 # Bloomberg Code a Database Livestream
-##Engineer Q&A With Adam and James
+## Engineer Q&A With Adam and James
 
 ❓ Wondering how a Bloomberg Engineer works
 ❓ Want to ask us something
