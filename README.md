@@ -15,9 +15,8 @@
 (Spoiler alert: we haven’t done this before)
 
 We’re going to be on Google Meet. Drop in when you’re free to see how we’re doing!
-https://meet.google.com/vat-vviw-mqz
 
-🕒 Drop in anytime on October 28th between 3pm & 6pm UK time (GMT) gcal link
+🕒 Drop in anytime on October 28th between 3pm & 6pm UK time (GMT)
 
 🗣 Come and ask us questions about Bloomberg/Computer Science/Software Engineering/ Careers/Anything
 
