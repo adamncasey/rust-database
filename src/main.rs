@@ -1,58 +1,90 @@
-mod tuple;
-mod dbtable;
 mod database;
+mod dbtable;
+mod tuple;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-use sqlite3_tokenizer::Tokenizer;
 use sqlite3_tokenizer::Token;
 use sqlite3_tokenizer::TokenKind;
+use sqlite3_tokenizer::Tokenizer;
 
 use crate::database::Database;
+use crate::tuple::TupleSchema;
+use crate::tuple::TupleType;
 
 const HISTORY_FILE: &str = ".rust-database-history.txt";
 
 fn is_whitespace(token: &Token) -> bool {
     match token.kind {
         TokenKind::Space => true,
-        _ => false
+        _ => false,
     }
 }
 
-fn repl(input: &str, db: &mut Database) {
-    let mut tokens = Tokenizer::new(input).filter(|t| !is_whitespace(&t));
+fn parse_schema(tokens: &[&str]) -> Result<TupleSchema, &'static str> {
+    let schema: TupleSchema = tokens
+        .iter()
+        .map(|t| match *t {
+            "int" => Some(TupleType::SignedInt32),
+            "varchar" => Some(TupleType::VarChar),
+            _ => {
+                //println!("unrecognised token: expected [int|varchar] {:?} {}", t.kind, t.text);
+                None
+            }
+        })
+        .flat_map(|x| x)
+        .collect();
 
-    let token = tokens.next();
+    match schema.len() {
+        0 => Err("no column types provided"),
+        _ => Ok(schema),
+    }
+}
 
-    if token.is_none() {
+fn create(table_name: &str, types: &[&str], db: &mut Database) {
+    let tuple_schema = parse_schema(types);
+
+    if tuple_schema.is_err() {
+        println!(
+            "input: create: expected table_name col_type+, got bad schema: {}",
+            tuple_schema.unwrap_err()
+        );
         return;
     }
+    let tuple_schema = tuple_schema.unwrap();
 
-    let token = token.unwrap();
+    let existing = db.create(table_name, tuple_schema);
+    match existing {
+        Some(_) => {
+            println!("input: create: overwritten table with same name");
+        }
+        None => {
+            println!(
+                "input: create: created table {:?}",
+                db.get(table_name).unwrap()
+            );
+        }
+    }
+}
 
-    match token.kind {
-        TokenKind::Select => {
-            println!("input: not yet implemented select");
-        },
-        TokenKind::Insert => {
-            println!("input: not yet implemented insert");
-        },
-        TokenKind::Create => {
-            let name = tokens.next();
-            if name.is_none() {
-                println!("input: create: expected table name, got nothing");
-                return;
-            }
-            let name = name.unwrap();
-            let existing = db.create(name.text);
-            match existing {
-                Some(_) => { println!("input: create: overwritten table with same name");},
-                None => { println!("input: create: created table"); }
-            }
-        },
+fn select(table_name: &str, db: &mut Database) {
+    //TODO: implement
+}
+
+fn insert(table_name: &str, values: &[&str], db: &mut Database) {
+    //TODO: implement
+}
+
+fn repl(input: &str, db: &mut Database) {
+    let tokens: Vec<&str> = input.split(" ").collect();
+
+    match tokens.as_slice() {
+        ["select", table_name, ..] => select(table_name, db),
+        ["insert", table_name, ..] => insert(table_name, &tokens[2..], db),
+        ["create", table_name, ..] => create(table_name, &tokens[2..], db),
         _ => {
-            println!("input: unsupported input: kind {:?} '{}'", token.kind, token.text);
+            println!("input: unsupported input: '{:?}'", tokens);
         }
     }
 }
@@ -72,18 +104,18 @@ fn main() {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 repl(line.as_str(), &mut db);
-            },
+            }
             Err(ReadlineError::Interrupted) => {
                 println!("rust-database: exiting due to keyboard interrupt");
-                break
-            },
+                break;
+            }
             Err(ReadlineError::Eof) => {
                 println!("rust-database: exiting due to end of input");
-                break
-            },
+                break;
+            }
             Err(err) => {
                 println!("Error: {:?}", err);
-                break
+                break;
             }
         }
     }

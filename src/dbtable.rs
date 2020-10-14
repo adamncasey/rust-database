@@ -1,8 +1,9 @@
 use crate::tuple::{Tuple, TupleSchema, TupleType, TupleVariant};
-use std::collections::BTreeMap;
 use std::collections::btree_map::Iter;
 use std::collections::btree_map::Range;
+use std::collections::BTreeMap;
 use std::ops::Bound::*;
+use std::fmt;
 
 pub struct DbTable {
     rows: BTreeMap<RowId, Tuple>,
@@ -15,7 +16,6 @@ type DbTableRange<'a> = Range<'a, RowId, Tuple>;
 type RowId = u32;
 
 impl DbTable {
-
     pub fn new(schema: TupleSchema) -> DbTable {
         DbTable {
             rows: BTreeMap::new(),
@@ -45,6 +45,11 @@ impl DbTable {
     }
 }
 
+impl fmt::Debug for DbTable {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DbTable").field("schema", &self.schema).finish()
+    }
+}
 
 #[test]
 fn test_dbtable() {

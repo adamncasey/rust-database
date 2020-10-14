@@ -14,6 +14,7 @@ pub enum TupleVariant {
     Null,
 }
 
+#[derive(Debug)]
 pub enum TupleType {
     UnsignedInt32,
     SignedInt32,
