@@ -26,7 +26,7 @@ impl Table {
     }
 
     pub fn cursor<'a>(&'a self) -> TableRange {
-        self.rows.range((..))
+        self.rows.range(..)
     }
 }
 

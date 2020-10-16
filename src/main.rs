@@ -2,6 +2,7 @@ mod database;
 mod dbtable;
 mod table;
 mod tuple;
+mod cell;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
