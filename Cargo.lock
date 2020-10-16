@@ -47,7 +47,6 @@ dependencies = [
  "bincode",
  "rustyline",
  "serde",
- "sqlite3_tokenizer",
 ]
 
 [[package]]
@@ -70,12 +69,6 @@ dependencies = [
  "redox_users",
  "winapi",
 ]
-
-[[package]]
-name = "gcc"
-version = "0.3.55"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
 name = "getrandom"
@@ -198,16 +191,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "sqlite3_tokenizer"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "196f6399301eabe70424d35e2dac69456999d055abab2ad13f6c529c5c0f2c8a"
-dependencies = [
- "gcc",
- "libc",
 ]
 
 [[package]]

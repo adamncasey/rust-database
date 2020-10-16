@@ -5,22 +5,11 @@ mod tuple;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
-use sqlite3_tokenizer::Token;
-use sqlite3_tokenizer::TokenKind;
-use sqlite3_tokenizer::Tokenizer;
-
 use crate::database::Database;
 use crate::tuple::TupleSchema;
 use crate::tuple::TupleType;
 
 const HISTORY_FILE: &str = ".rust-database-history.txt";
-
-fn is_whitespace(token: &Token) -> bool {
-    match token.kind {
-        TokenKind::Space => true,
-        _ => false,
-    }
-}
 
 fn parse_schema(tokens: &[&str]) -> Result<TupleSchema, &'static str> {
     let schema: TupleSchema = tokens
