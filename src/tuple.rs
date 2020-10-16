@@ -40,6 +40,11 @@ trait FromStrings {
         Self: std::marker::Sized;
 }
 
+pub trait Binerable {
+    fn serialize(&self) -> Result<Box<[u8]>, &'static str>;
+    fn deserialize(data: &[u8]) -> Result<Tuple, &'static str>;
+}
+
 impl ToString for TupleVariant {
     fn to_string(&self) -> String {
         match self {
@@ -121,6 +126,18 @@ impl FromStrings for Tuple {
         } else {
             Ok(converted.into_iter().flatten().collect())
         }
+    }
+}
+
+impl Binerable for Tuple {
+    fn serialize(&self) -> Result<Box<[u8]>, &'static str> {
+        bincode::serialize(self)
+            .map(Vec::into_boxed_slice)
+            .map_err(|e| "error serializing")
+    }
+
+    fn deserialize(data: &[u8]) -> Result<Tuple, &'static str> {
+        bincode::deserialize(data).map_err(|e| "error deserializing")
     }
 }
 

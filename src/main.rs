@@ -1,5 +1,6 @@
 mod database;
 mod dbtable;
+mod table;
 mod tuple;
 
 use rustyline::error::ReadlineError;
