@@ -3,6 +3,7 @@ mod dbtable;
 mod table;
 mod tuple;
 mod cell;
+mod page;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
