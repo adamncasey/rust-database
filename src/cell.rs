@@ -37,6 +37,10 @@ impl Cell {
         self.next_cell_offset
     }
 
+    pub fn set_next_cell(&mut self, new_next: Option<usize>) {
+        self.next_cell_offset = new_next;
+    }
+
     pub fn new_from_memory(mem: &[u8], offset: usize) -> Result<Cell, &'static str> {
         if mem.len() < offset + CELL_HEADER_SIZE {
             return Err("incorrect size");

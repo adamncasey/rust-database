@@ -1,6 +1,6 @@
+use crate::cell::cell_size;
 use crate::cell::Cell;
 use crate::cell::CELL_HEADER_SIZE;
-use crate::cell::cell_size;
 
 const LINKED_PAGE_HEADER: usize = 5 + 5 + 5;
 
@@ -95,11 +95,106 @@ impl LinkedPage {
         cell_size(key_size, payload_size) <= self.free_space()
     }
 
-    pub fn insert(&mut self, key: &[u8], payload: &[u8], after_cell: Option<usize>) -> Result<(), &'static str> {
-        if !self.has_space_for(key.len(), payload.len()) {
+    pub fn allocate(&mut self, required_size: usize) -> Result<usize, &'static str> {
+        // if no allocation possible, no changes are to be made.
+        if required_size > self.free_space() {
             return Err("no space");
         }
-        Err("Not implemented")
+
+        let free = self
+            .free_cell_iter()
+            .filter(|(_, c)| c.size() >= required_size)
+            .next();
+
+        // not enough space in one free cell? we need to defrag.
+        assert!(free.is_some(), "defrag is required but not yet implemented");
+
+        let (free_offset, free_cell) = free.unwrap();
+
+        // temporarily as we deal with offsets to cells in the page, and not their indexes.
+        // we have to loop over the cells again to find parents.
+        let free_prev = self
+            .free_cell_iter()
+            .filter(|(o, c)| c.next_cell() == Some(free_offset))
+            .next();
+
+        if let Some((prev_free_offset, _)) = free_prev {
+            // we can't iterate over mutable cells so construct a new mutable one.
+            let mut prev_free_cell = Cell::new_from_memory(&self.mem, prev_free_offset).unwrap();
+            // fixup free cell chain, ignoring the cell we removed.
+            prev_free_cell.set_next_cell(free_cell.next_cell());
+            prev_free_cell.save(&mut self.mem, prev_free_offset);
+        } else {
+            // there is no previous, update head of list.
+            self.first_free_cell_offset = free_cell.next_cell();
+        }
+
+        // creating new free block
+
+        let extra_size = free_cell.size() - required_size;
+
+        if extra_size != 0 {
+            assert!(
+                extra_size >= CELL_HEADER_SIZE,
+                "not yet handled cell fragments"
+            );
+
+            // create new free block to cover rest of space
+            let extra_offset = free_offset + required_size;
+            let extra_payload_size = extra_size - CELL_HEADER_SIZE;
+            let extra_cell = Cell::new(0, extra_payload_size, self.first_free_cell_offset);
+            extra_cell.save(&mut self.mem, extra_offset);
+
+            // link in new free block to head of free list
+            self.first_free_cell_offset = Some(extra_offset);
+        }
+
+        Ok(free_offset)
+    }
+
+    pub fn insert(
+        &mut self,
+        key: &[u8],
+        payload: &[u8],
+        after_cell: Option<usize>,
+    ) -> Result<(), &'static str> {
+        let required_size = cell_size(key.len(), payload.len());
+        let new_cell_offset = self.allocate(required_size);
+
+        if new_cell_offset.is_err() {
+            return Err(new_cell_offset.unwrap_err());
+        }
+
+        let new_cell_offset = new_cell_offset.unwrap();
+
+        // next cell offset if any
+        // if user specified no after_cell then next cell is whatever was the prev first cell
+        // else after cell is whatever was after the after_cell
+
+        let next_cell_offset = if let Some(after_cell) = after_cell {
+            Cell::new_from_memory(&self.mem, after_cell)
+                .unwrap()
+                .next_cell()
+        } else {
+            self.first_cell_offset
+        };
+
+        if after_cell.is_none() {
+            // insert into first position
+            self.first_cell_offset = Some(new_cell_offset);
+        }
+
+        let new_cell = Cell::new(key.len(), payload.len(), next_cell_offset);
+
+        new_cell
+            .key_mut(&mut self.mem, new_cell_offset)
+            .copy_from_slice(key);
+        new_cell
+            .payload_mut(&mut self.mem, new_cell_offset)
+            .copy_from_slice(payload);
+        new_cell.save(&mut self.mem, new_cell_offset);
+
+        Ok(())
     }
 }
 
@@ -124,7 +219,10 @@ fn insert_cell() {
     assert!(page.has_space_for(insert_key.len(), insert_payload.len()));
     assert!(!page.has_space_for(1000, 24));
 
-    page.insert(&insert_key, &insert_payload, after_cell).unwrap();
+    page.insert(&insert_key, &insert_payload, after_cell)
+        .unwrap();
+
+    page.validate_allocations().unwrap();
 
     let mut iter = page.cell_iter();
 
@@ -135,4 +233,8 @@ fn insert_cell() {
     assert_eq!(read_key, insert_key);
     let read_payload = cell.payload(&page.mem, offset);
     assert_eq!(read_payload, insert_payload);
+
+    let next = iter.next();
+
+    assert!(next.is_none());
 }
