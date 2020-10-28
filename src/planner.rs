@@ -99,10 +99,48 @@ fn plan_insert(input: &str) -> Option<Plan> {
     })
 }
 
+fn plan_select(input: &str) -> Option<Plan> {
+    let rest = input.strip_prefix("SELECT");
+
+    if None == rest {
+        return None;
+    }
+
+    let rest = rest.unwrap().trim();
+
+    let mut tokens = rest.split(" ");
+
+    let column_names = match tokens.next() {
+        Some(cname) => cname,
+        None => return None,
+    };
+
+    if column_names != "*" {
+        panic!("We only support selecting all columns");
+    }
+
+    tokens.next(); // skip 'FROM'
+
+    let table_name = match tokens.next() {
+        Some(tname) => tname,
+        None => return None,
+    };
+
+    Some(Plan {
+        query: input.to_string(),
+        operation: Operation::Select {
+            table_name: table_name.to_string(),
+        },
+    })
+}
+
+
 pub fn plan(input: &str) -> Plan {
     if let Some(plan) = plan_create_table(input) {
         return plan;
     } else if let Some(plan) = plan_insert(input) {
+        return plan;
+    } else if let Some(plan) = plan_select(input) {
         return plan;
     } else {
         return error_plan(input);
