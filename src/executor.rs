@@ -1,5 +1,7 @@
-use crate::database::Database;
-use crate::planner::{Operation, Plan};
+use crate::{database::Database, planner::{column_names, expr_to_string}};
+use crate::planner::Plan;
+
+use sqlparser::ast::{SetExpr, Statement, TableFactor};
 
 #[derive(Debug)]
 pub struct DbRows {
@@ -11,7 +13,7 @@ impl DbRows {
     pub fn empty() -> DbRows {
         DbRows {
             current_row: 0,
-            rows: Vec::new()
+            rows: Vec::new(),
         }
     }
 
@@ -21,7 +23,6 @@ impl DbRows {
             let row_num = self.current_row;
             self.current_row += 1;
             Some(&self.rows[row_num])
-            
         } else {
             None
         }
@@ -29,45 +30,73 @@ impl DbRows {
 }
 
 pub fn execute(plan: &Plan, db: &mut Database) -> Result<DbRows, &'static str> {
-    match &plan.operation {
-        Operation::CreateTable {
-            table_name,
-            column_names,
-        } => {
-            db.create_table(&table_name, &column_names)?;
+    match &plan.command {
+        Statement::CreateTable { name, columns, .. } => {
+            db.create_table(&name.to_string(), &column_names(columns))?;
             Ok(DbRows::empty())
-        },
-        Operation::Insert {
-            table_name,
-            values
+        }
+        Statement::Insert {
+            table_name, source, ..
         } => {
-            let table = match db.tables.get_mut(table_name) {
+            // Access db table
+            let table = match db.tables.get_mut(&table_name.to_string()) {
                 None => return Err("Table name not found"),
                 Some(table) => table,
             };
 
-            if table.column_names.len() != values.len() {
-                return Err("Incorrect number of values");
+            // Check type of source
+            let values = match &source.body {
+                SetExpr::Values(v) => v,
+                _ => return Err("Not supported"),
+            };
+
+            // Validate tuple lengths in source
+            for tuple in &values.0 {
+                if table.column_names.len() != tuple.len() {
+                    return Err("Incorrect number of values");
+                }
             }
 
-            table.values.push(values.to_vec());
+            // Insert rows
+            for tuple in &values.0 {
+                let tuple = tuple.iter().map(expr_to_string).collect();
+
+                table.values.push(tuple);
+            }
 
             Ok(DbRows::empty())
-        },
-        Operation::Select {
-            table_name
-        } => {
-            let table = match db.tables.get_mut(table_name) {
+        }
+        Statement::Query(q) => {
+            // Get the select
+            let select = match &q.body {
+                SetExpr::Select(select) => select,
+                _ => return Err("set type not supported"),
+            };
+
+            // Get the first table mentioned
+            let table = match select.from.len() {
+                1 => &select.from.get(0).unwrap().relation,
+                _ => return Err("incorrect number of tables specified"),
+            };
+
+            // Get the name of the table
+            let table_name = match table {
+                TableFactor::Table { name, .. } => name.to_string(),
+                _ => return Err("table facor type not supported"),
+            };
+
+            // Access the db table of the same name
+            let table = match db.tables.get(&table_name) {
                 None => return Err("Table name not found"),
                 Some(table) => table,
             };
 
+            // Return the rows
             Ok(DbRows {
                 current_row: 0,
                 rows: table.values.clone(),
             })
-        },
-        
-        _ => Err("Unknown operation"),
+        }
+        _ => Err("statement type not supported"),
     }
 }
